@@ -2,10 +2,10 @@
 
 Below, you'll find the documentation of LemonInks public watermarking API.
 
-1. [Prerequisites](#prerequisites)
-2. [Authentication & Headers](#authentication-&-Headers)
-3. [Watermarking](#watermarking)
-4. [Delivering watermarked files](#delivering-watermarked-files)
+1. [Prerequisites](#1-prerequisites)
+2. [Authentication & Headers](#2-authentication--Headers)
+3. [Watermarking](#3-watermarking)
+4. [Delivering watermarked files](#4-delivering-watermarked-files)
  
 ## 1. Prerequisites
 
