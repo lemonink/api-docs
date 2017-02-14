@@ -11,15 +11,15 @@ Below, you'll find the documentation of LemonInk's public watermarking API.
 
 To be able to perform actions described in the next sections you need to have an active account at [lemonink.co](https://lemonink.co).
 
-You also need to have some credits to spend. If you need some test credits - don't hesitate to contact us at [hello@lemonink.co](mailto:hello@lemonink.co).
-
 And lastly, you should know IDs assigned to your master files by LemonInk - you can check those in your master file repository after logging in to LemonInk. 
 
 ## 2. Authentication & Headers
 
-Before you try sending any requests to the API, generate and API key. You can do that in your [account settings](https://lemonink.co/account/api-keys) after logging in to LemonInk. In the following examples we'll use a fake key: `change-to-your-api-key`.
+Before you try sending any requests to the API, generate an API key. You can do that in your [account settings](https://lemonink.co/account/api-keys) after logging in to LemonInk. In the following examples we'll use a fake key: `change-to-your-api-key`.
 
 To authenticate any requests made to our API, you must include an authorization header. Also remember about a correct JSON Content-Type header. So each of your requests must have the following headers:
+
+*Note:* to test how API works, generate a test API token and use it when making calls. This will behave as usual, but won't actualy make any changes and won't cost you a dime.
 
 ````
 Authorization: Token token=change-to-your-api-key
