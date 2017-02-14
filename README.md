@@ -19,7 +19,7 @@ Before you try sending any requests to the API, generate an API key. You can do 
 
 To authenticate any requests made to our API, you must include an authorization header. Also remember about a correct JSON Content-Type header. So each of your requests must have the following headers:
 
-*Note:* to test how API works, generate a test API token and use it when making calls. This will behave as usual, but won't actualy make any changes and won't cost you a dime.
+*Note:* to test how API works, generate a test API key and use it when making calls. This will behave as usual, but won't actualy make any changes and won't cost you a dime.
 
 ````
 Authorization: Token token=change-to-your-api-key
