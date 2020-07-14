@@ -64,8 +64,9 @@ Now for the last part:
 In order to deliver the protected file to your cusotmer, you need to generate a link to the transaction. You can either download the file to your server and then serve it by yourself or you can give your user a direct link to our servers. Regardless of how you wish to deliver the files, here is how the delivery links are constructed:
 
 ````
-https://dl.lemonink.co/transactions/a-very-secret-token-unique-for-this-transaction/id-of-the-new-transaction
+https://dl.lemonink.co/transactions/a-very-secret-token-unique-for-this-transaction/id-of-the-new-transaction.format
 ````
+Where format is one of `epub`, `mobi` or `pdf`.
 
 Et voilà!
 
