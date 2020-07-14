@@ -1,6 +1,6 @@
-# Docs for [LemonInk](https://lemonink.co) public API
+# Docs for [LemonInk](https://lemonink.co) public ebook watermarking API
 
-Below, you'll find the documentation of LemonInk's public watermarking API.
+Below, you'll find the documentation of LemonInk's public ebook watermarking API.
 
 1. [Prerequisites](#1-prerequisites)
 2. [Authentication & Headers](#2-authentication--headers)
