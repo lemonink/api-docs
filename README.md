@@ -26,7 +26,81 @@ Authorization: Token token=change-to-your-api-key
 Content-Type: application/json
 ````
 
-## 3. Watermarking
+## 3. Uploading files
+
+You have to first upload some files before watermarking them. It's easy enough to do from our webapp, but you can integrate this feature with your app as well using this method.
+
+### First: create a "master" file.
+
+````
+POST https://api.lemonink.co/v1/masters
+Authorization: Token token=change-to-your-api-key
+Content-Type: application/json
+
+{
+  "master": {
+    "name": "My Beautiful Book"
+  }
+}
+````
+
+wich will return a response like this:
+
+````
+{
+  "master": {
+    "id": "id-of-the-new-master",
+    "name": "My Beautiful Book"
+  }
+}
+````
+
+*Note:* The ID you'll receive in this response is what you'll later need for making watermarking requests.
+
+### Next: attach some files
+
+For each of the formats of your book you need to attach one file to the master. In this case you'll be sending a request in `form-data` format:
+
+````
+POST https://api.lemonink.co/v1/master_files
+Authorization: Token token=change-to-your-api-key
+Content-Type: multipart/form-data; boundary={boundary string}
+
+--{boundary string}--
+Content-Disposition: form-data; name="master_file[master_id]",
+
+id-of-the-new-master
+--{boundary string}
+Content-Disposition: form-data; name="master_file[file]"; filename="My_Beautiful_Book.epub"
+Content-Type: application/epub+zip,
+
+--{boundary string}--
+Content-Disposition: form-data; name="master_file[name]",
+
+My_Beautiful_Book.epub
+--{boundary string}--
+````
+
+wich will return a response like this (still in `json` format):
+
+````
+{
+  "master_file": {
+    "id": "id-of-the-new-master-file",
+    "master_id": "id-of-the-new-master",
+    "name": "My_Beautiful_Book.epub"
+  }
+}
+````
+
+### Last but not least: updating masters and files
+
+To modify those record issue `PUT` requests to a resource specific URLs like `https://api.lemonink.co/v1/masters/ae929117-4059-4b0f-a14e-f2703ab9dfda`. Contents of the requests should be the same as when creating those resource but you can omit the attributes that you're not changing at the moment.
+
+To remove masters or files issue `DELETE` requests to resource specific URLs (like above).
+
+
+## 4. Watermarking
 
 Watermarking using LemonInk's API is simply done by creating a `Transaction` resource. To do so, you need to send a POST request to the `/transactions` endpoint, providing details in a JSON body. For example:
 
@@ -59,7 +133,7 @@ And for such a request, you'll receive a response like this:
 
 Now for the last part:
 
-## 4. Delivering watermarked files
+## 5. Delivering watermarked files
 
 In order to deliver the protected file to your cusotmer, you need to generate a link to the transaction. You can either download the file to your server and then serve it by yourself or you can give your user a direct link to our servers. Regardless of how you wish to deliver the files, here is how the delivery links are constructed:
 
