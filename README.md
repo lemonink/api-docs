@@ -15,7 +15,7 @@ And lastly, you should know IDs assigned to your master files by LemonInk - you 
 
 ## 2. Authentication & Headers
 
-Before you try sending any requests to the API, generate an API key. You can do that in your [account settings](https://lemonink.co/account/api-keys) after logging in to LemonInk. In the following examples we'll use a fake key: `change-to-your-api-key`.
+Before you try sending any requests to the API, generate an API key. You can do that in your [account settings](https://lemonink.co/settings/api-keys) after logging in to LemonInk. In the following examples we'll use a fake key: `change-to-your-api-key`.
 
 To authenticate any requests made to our API, you must include an authorization header. Also remember about a correct JSON Content-Type header. So each of your requests must have the following headers:
 
