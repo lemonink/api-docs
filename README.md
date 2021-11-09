@@ -131,6 +131,26 @@ And for such a request, you'll receive a response like this:
 }
 ````
 
+You can also replace `watermark_value` with `watermark_params` which will be interpolated into the template you've configured for your account:
+
+````
+POST https://api.lemonink.co/v1/transactions
+Authorization: Token token=change-to-your-api-key
+Content-Type: application/json
+
+{
+  "transaction": {
+    "master_id": "id-of-your-master-file",
+    "watermark_params": {
+      "customer_email": "christine.smith@example.com",
+      "order_number": "44321"
+    }
+  }
+}
+````
+
+Look into your watermarking configuration for the list of the params you'll need — make sure to include all that are used in your template.
+
 Now for the last part:
 
 ## 5. Delivering watermarked files
