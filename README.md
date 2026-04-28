@@ -4,18 +4,22 @@ Below, you'll find the documentation of LemonInk's public ebook watermarking API
 
 1. [Prerequisites](#1-prerequisites)
 2. [Authentication & Headers](#2-authentication--headers)
-3. [Watermarking](#3-watermarking)
-4. [Delivering watermarked files](#4-delivering-watermarked-files)
- 
+3. [Uploading files](#3-uploading-files)
+4. [Watermarking orders (recommended)](#4-watermarking-orders-recommended)
+5. [Watermarking files (advanced)](#5-watermarking-files-advanced)
+6. [Delivering watermarked files](#6-delivering-watermarked-files)
+
 ## 1. Prerequisites
 
 To be able to perform actions described in the next sections you need to have an active account at [lemonink.co](https://lemonink.co).
 
-And lastly, you should know IDs assigned to your master files by LemonInk - you can check those in your master file repository after logging in to LemonInk. 
+You should also know IDs assigned to your master files by LemonInk — you can check those in your master file repository after logging in to LemonInk.
+
+For the [Watermarking orders](#4-watermarking-orders-recommended) flow (which is the recommended way to integrate) you'll additionally need a *store* connected to your account and your products linked to your master files. Both of those are configured in the LemonInk webapp; see that section for details.
 
 ## 2. Authentication & Headers
 
-Before you try sending any requests to the API, generate an API key. You can do that in your [account settings](https://lemonink.co/settings/api-keys) after logging in to LemonInk. In the following examples we'll use a fake key: `change-to-your-api-key`.
+Before you try sending any requests to the API, generate an API key. You can do that in your [account settings](https://lemonink.co/configuration/api_keys) after logging in to LemonInk. In the following examples we'll use a fake key: `change-to-your-api-key`.
 
 To authenticate any requests made to our API, you must include an authorization header. Also remember about a correct JSON Content-Type header. So each of your requests must have the following headers:
 
@@ -99,10 +103,95 @@ To modify those record issue `PUT` requests to a resource specific URLs like `ht
 
 To remove masters or files issue `DELETE` requests to resource specific URLs (like above).
 
+## 4. Watermarking orders (recommended)
 
-## 4. Watermarking
+This is the recommended way to integrate LemonInk with your shop. Instead of creating one watermarking transaction per file, you tell us about an order placed in your shop and we'll figure out which masters need to be watermarked, run the watermarking and (optionally) email the download link straight to your customer.
 
-Watermarking using LemonInk's API is simply done by creating a `Transaction` resource. To do so, you need to send a POST request to the `/transactions` endpoint, providing details in a JSON body. For example:
+### Before your first order: set up a store and link products
+
+Orders always belong to a *store*. A store represents a single shop you're operating and lets you link products to master files so that we can figure out which masters to watermark. Stores are configured in the LemonInk webapp.
+
+1. *Add store*. Log in to LemonInk and go to [Stores](https://lemonink.co/stores). Click "Connect your store" and pick the "Custom" integration. Give it a name and save — you'll need the store ID from the URL (or the "Copy ID" button on the store list) when sending orders.
+2. *Link products*. Go to [Your files](https://lemonink.co/masters) and link each file with associated product (or products) in your store. A single product can be linked to multiple masters (useful for bundles), and a single master can be linked to multiple products.
+3. *Setup email delivery*. Optionally, configure email delivery on the store page — when enabled, LemonInk will email the download link directly to your customer once the order is processed.
+
+*Note:* The "Custom" integration is for when you're sending orders from your own backend. We also offer dedicated Shopify and Shoper integrations that don't require any of this — if you're on one of those platforms, just install the LemonInk app from their respective app stores.
+
+### Sending an order
+
+Once your store is set up, send your orders to the `/orders` endpoint:
+
+````
+POST https://api.lemonink.co/v1/orders
+Authorization: Token token=change-to-your-api-key
+Content-Type: application/json
+
+{
+  "order": {
+    "store_id": "id-of-your-store",
+    "external_id": "order-id-in-your-system",
+    "number": "ORDER-1234",
+    "customer": {
+      "email": "christine.smith@example.com",
+      "first_name": "Christine",
+      "last_name": "Smith"
+    },
+    "line_items": [
+      { "product_id": "id-of-product-in-your-shop" },
+      { "product_id": "id-of-another-product-in-your-shop" }
+    ]
+  }
+}
+````
+
+And for such a request, you'll receive a response like this:
+
+````
+{
+  "order": {
+    "id": "id-of-the-new-order",
+    "external_id": "order-id-in-your-system",
+    "status": "received",
+    "download_url": "https://dl.lemonink.co/orders/api/a-token-unique-for-this-order/id-of-the-new-order",
+    "processed_at": null,
+    "deliver_via_email": null
+  }
+}
+````
+
+A few things to know about the request:
+
+- `store_id` is required and must point to an active store you own.
+- `external_id` is required and must be unique within the store — it's the ID of the order in your system. Sending the same `external_id` twice will return a `422` error, which makes the endpoint safe to retry.
+- `number` is only used for display purposes (in your customer's download page and in the watermark, if your template uses `order_number`).
+- `customer` describes the buyer. Supported keys are `email`, `name`, `first_name`, `last_name` and `company_name`. Any other keys are silently dropped. Provide whichever keys your watermarking template needs — at minimum, `email` is recommended (and required when email delivery is enabled, see below).
+- `line_items` is an array of items in the order. Each item has a single supported key — `product_id` — which must match a product ID you've linked in your store. Items whose product IDs aren't linked to any master are silently ignored. If none of the items match a linked product, the order ends up in `skipped` status.
+- `deliver_via_email` is optional. When omitted, the store's default setting is used. Set it to `true` or `false` to override on a per-order basis. When email delivery is on, `customer.email` must be present.
+
+### Checking the status of an order
+
+Order processing is asynchronous — when LemonInk receives your request, the order starts in `received` status and moves through `processing` to one of the terminal statuses. You can poll the order to see where it is:
+
+````
+GET https://api.lemonink.co/v1/orders/id-of-the-new-order
+Authorization: Token token=change-to-your-api-key
+````
+
+The response has the same shape as the create response. The `status` field is one of:
+
+- `received` — we got the request and it's queued for processing.
+- `processing` — we're watermarking files for this order.
+- `completed` — at least one file was successfully watermarked and the download link is ready.
+- `skipped` — none of the line items matched a linked product, so there was nothing to watermark.
+- `failed` — something went wrong. We monitor failures on our side, but feel free to contact us if a specific order keeps failing.
+
+`processed_at` will be set once the order leaves `received`/`processing`.
+
+## 5. Watermarking files (advanced)
+
+If the [Watermarking orders](#4-watermarking-orders-recommended) flow doesn't fit your case — for example, when prefer to link files to products on your end — you can use the lower-level Transactions API directly.
+
+To watermark a file, send a POST request to the `/transactions` endpoint, providing details in a JSON body. For example:
 
 ````
 POST https://api.lemonink.co/v1/transactions
@@ -123,7 +212,7 @@ And for such a request, you'll receive a response like this:
 {
   "transaction": {
     "id": "id-of-the-new-transaction",
-    "watermark_value: "A text that will be inserted into the file",
+    "watermark_value": "A text that will be inserted into the file",
     "token": "a-token-unique-for-this-transaction",
     "master_id": "id-of-your-master-file",
     "user_id": "your-account-id"
@@ -149,13 +238,27 @@ Content-Type: application/json
 }
 ````
 
-Look into your watermarking configuration for the list of the params you'll need — make sure to include all that are used in your template.
+Look into your watermarking configuration for the list of the params you'll need — make sure to include all that are used in your template.
 
-Now for the last part:
+## 6. Delivering watermarked files
 
-## 5. Delivering watermarked files
+How you deliver the watermarked files to your customer depends on which flow you used to create them.
 
-In order to deliver the protected file to your customer, you need to generate a link to the transaction. You can either download the file to your server and then serve it by yourself or you can give your user a direct link to our servers. Regardless of how you wish to deliver the files, here is how the delivery links are constructed:
+### From the orders flow
+
+Each successfully completed order has a `download_url` you can hand to your customer:
+
+````
+https://dl.lemonink.co/orders/api/a-token-unique-for-this-order/id-of-the-new-order
+````
+
+This is a download page where the customer can pick the format they want. The token in the URL doubles as an authorization token, so anyone with the link can download.
+
+If you've enabled email delivery on the store, you can skip this step entirely — LemonInk will email the link to `customer.email` once the order is `completed`.
+
+### From the transactions flow
+
+To deliver a transaction's protected file to your customer, generate a link to the transaction. You can either download the file to your server and then serve it by yourself or you can give your user a direct link to our servers. Regardless of how you wish to deliver the files, here is how the delivery links are constructed:
 
 ````
 https://dl.lemonink.co/transactions/a-token-unique-for-this-transaction/id-of-the-new-transaction.format
