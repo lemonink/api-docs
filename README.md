@@ -15,7 +15,7 @@ To be able to perform actions described in the next sections you need to have an
 
 You should also know IDs assigned to your master files by LemonInk — you can check those in your master file repository after logging in to LemonInk.
 
-For the [Watermarking orders](#4-watermarking-orders-recommended) flow (which is the recommended way to integrate) you'll additionally need a *store* connected to your account and your products linked to your master files. Both of those are configured in the LemonInk webapp; see that section for details.
+For the [Watermarking orders](#4-watermarking-orders-recommended) flow (which is the recommended way to integrate) you'll additionally need a *store* connected to your account and your products linked to your master files. Connect the store in the LemonInk webapp; product mappings can then be managed in the webapp or through the API.
 
 ## 2. Authentication & Headers
 
@@ -99,7 +99,7 @@ wich will return a response like this (still in `json` format):
 
 ### Last but not least: updating masters and files
 
-To modify those record issue `PUT` requests to a resource specific URLs like `https://api.lemonink.co/v1/masters/ae929117-4059-4b0f-a14e-f2703ab9dfda`. Contents of the requests should be the same as when creating those resource but you can omit the attributes that you're not changing at the moment.
+To modify those records, issue `PUT` requests to a resource specific URLs like `https://api.lemonink.co/v1/masters/ae929117-4059-4b0f-a14e-f2703ab9dfda`. Contents of the requests should be the same as when creating those resource but you can omit the attributes that you're not changing at the moment.
 
 To remove masters or files issue `DELETE` requests to resource specific URLs (like above).
 
@@ -112,10 +112,90 @@ This is the recommended way to integrate LemonInk with your shop. Instead of cre
 Orders always belong to a *store*. A store represents a single shop you're operating and lets you link products to master files so that we can figure out which masters to watermark. Stores are configured in the LemonInk webapp.
 
 1. *Add store*. Log in to LemonInk and go to [Stores](https://lemonink.co/stores). Click "Connect your store" and pick the "Custom" integration. Give it a name and save — you'll need the store ID from the URL (or the "Copy ID" button on the store list) when sending orders.
-2. *Link products*. Go to [Your files](https://lemonink.co/masters) and link each file with associated product (or products) in your store. A single product can be linked to multiple masters (useful for bundles), and a single master can be linked to multiple products.
+2. *Link products*. Go to [Your files](https://lemonink.co/masters) and link each file with associated product (or products) in your store. You can also [manage product mappings through the API](#managing-product-mappings-through-the-api). A single product can be linked to multiple masters (useful for bundles), and a single master can be linked to multiple products.
 3. *Setup email delivery*. Optionally, configure email delivery on the store page — when enabled, LemonInk will email the download link directly to your customer once the order is processed.
 
 *Note:* The "Custom" integration is for when you're sending orders from your own backend. We also offer dedicated Shopify and Shoper integrations that don't require any of this — if you're on one of those platforms, just install the LemonInk app from their respective app stores.
+
+### Finding your stores through the API
+
+Use the Stores API instead of copying IDs from the webapp when configuring an integration script:
+
+````
+GET https://api.lemonink.co/v1/stores
+Authorization: Token token=change-to-your-api-key
+````
+
+The response contains every store belonging to your account. Store responses expose only the store's `id` and `name`:
+
+````
+{
+  "stores": [
+    {
+      "id": "id-of-your-store",
+      "name": "My Store"
+    }
+  ]
+}
+````
+
+Fetch one store with `GET /v1/stores/id-of-your-store`. The response wraps the same fields in a `store` object. Both requests return `200 OK` when successful.
+
+### Managing product mappings through the API
+
+A product mapping links one product in a store to one master. Product IDs are non-empty, opaque strings supplied by your store; LemonInk does not look them up in or validate them against the store's catalogue when a mapping is created.
+
+Create a mapping with:
+
+````
+POST https://api.lemonink.co/v1/product_mappings
+Authorization: Token token=change-to-your-api-key
+Content-Type: application/json
+
+{
+  "product_mapping": {
+    "store_id": "id-of-your-store",
+    "master_id": "id-of-your-master",
+    "product_id": "id-of-product-in-your-store"
+  }
+}
+````
+
+A successful request returns `201 Created`:
+
+````
+{
+  "product_mapping": {
+    "id": "id-of-the-product-mapping",
+    "store_id": "id-of-your-store",
+    "master_id": "id-of-your-master",
+    "product_id": "id-of-product-in-your-store"
+  }
+}
+````
+
+The combination of `store_id`, `master_id` and `product_id` must be unique. Creating the same mapping twice, or using a blank `product_id`, returns `422 Unprocessable Content`. A product may still be linked to several masters, which is how bundles are represented, and a master may be linked to several products.
+
+List every mapping belonging to your account with `GET /v1/product_mappings`. The list is not paginated. You can narrow it with any combination of these exact-match filters:
+
+````
+GET https://api.lemonink.co/v1/product_mappings?filter[store_id]=id-of-your-store
+GET https://api.lemonink.co/v1/product_mappings?filter[master_id]=id-of-your-master
+GET https://api.lemonink.co/v1/product_mappings?filter[product_id]=id-of-product-in-your-store
+````
+
+When more than one filter is supplied, all of them must match. The response is a `product_mappings` array containing only the same four fields shown above. Fetch one mapping with `GET /v1/product_mappings/id-of-the-product-mapping`; its response wraps those fields in a `product_mapping` object. Both requests return `200 OK` when successful.
+
+Remove a mapping with:
+
+````
+DELETE https://api.lemonink.co/v1/product_mappings/id-of-the-product-mapping
+Authorization: Token token=change-to-your-api-key
+````
+
+A successful deletion returns `204 No Content` with an empty response body. Product mappings cannot be updated; delete the old mapping and create a new one when its store, master or product ID changes.
+
+Fetching or deleting an unknown resource ID returns `404 Not Found`, as does creating a mapping with an unknown store or master ID. An index filter for another account's store or master simply returns an empty `product_mappings` array.
 
 ### Sending an order
 
