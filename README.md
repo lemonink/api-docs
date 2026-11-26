@@ -244,7 +244,7 @@ A few things to know about the request:
 - `store_id` is required and must point to an active store you own.
 - `external_id` is required and must be unique within the store — it's the ID of the order in your system. Sending the same `external_id` twice will return a `422` error, which makes the endpoint safe to retry.
 - `number` is only used for display purposes (in your customer's download page and in the watermark, if your template uses `order_number`).
-- `customer` describes the buyer. Supported keys are `email`, `name`, `first_name`, `last_name` and `company_name`. Any other keys are silently dropped. Provide whichever keys your watermarking template needs — at minimum, `email` is recommended (and required when email delivery is enabled, see below).
+- `customer` describes the buyer. Supported keys are `id`, `email`, `name`, `first_name`, `last_name` and `company_name`. Any other keys are silently dropped. Provide whichever keys your watermarking template needs — at minimum, `email` is recommended (and required when email delivery is enabled, see below). `id` is your store's ID for the customer. It is only used to group [LCP-protected](#protecting-orders-with-readium-lcp-drm) books under one passphrase.
 - `line_items` is an array of items in the order. Each item has a single supported key — `product_id` — which must match a product ID you've linked in your store. Items whose product IDs aren't linked to any master are silently ignored. If none of the items match a linked product, the order ends up in `skipped` status.
 - `deliver_via_email` is optional. When omitted, the store's default setting is used. Set it to `true` or `false` to override on a per-order basis. When email delivery is on, `customer.email` must be present.
 
@@ -266,6 +266,10 @@ The response has the same shape as the create response. The `status` field is on
 - `failed` — something went wrong. We monitor failures on our side, but feel free to contact us if a specific order keeps failing.
 
 `processed_at` will be set once the order leaves `received`/`processing`.
+
+### Protecting orders with Readium LCP DRM
+
+By default every book in an order is watermarked. If [Readium LCP](https://lemonink.co/blog/2026-08-31-drm-it-is-readium-lcp-support-is-now-live-in-lemonink) is enabled for your account, you can protect books with LCP DRM instead. Choose the protection method in the LemonInk webapp for your whole account, a store, a single file or for specific product in your store.
 
 ## 5. Watermarking files (advanced)
 
@@ -320,6 +324,36 @@ Content-Type: application/json
 
 Look into your watermarking configuration for the list of the params you'll need — make sure to include all that are used in your template.
 
+### Protecting files with Readium LCP DRM
+
+If Readium LCP is enabled for your account, a transaction can protect a file with LCP DRM instead of a watermark. Set `protection_method` to `lcp` and, optionally, pass `lcp_params`:
+
+````
+POST https://api.lemonink.co/v1/transactions
+Authorization: Token token=change-to-your-api-key
+Content-Type: application/json
+
+{
+  "transaction": {
+    "master_id": "id-of-your-master-file",
+    "protection_method": "lcp",
+    "lcp_params": {
+      "customer_ref": "customer-42",
+      "license_ends_at": "2027-12-31T23:59:59Z"
+    }
+  }
+}
+````
+
+- `protection_method` is either `watermark` or `lcp`. When you leave it out, the transaction uses the protection method configured in the webapp.
+- `lcp_params.customer_ref` is optional. It's an identifier of your choice for the buyer. All LCP transactions with the same `customer_ref` share one passphrase, so a customer can open every book they bought with it. Without it, each transaction gets its own passphrase.
+- `lcp_params.license_ends_at` is optional. It's an ISO 8601 date and time when the license expires. When omitted, the master's availability period applies, if one is set. Otherwise the license never expires.
+- `watermark_value` and `watermark_params` aren't required for LCP transactions.
+
+LCP can only protect EPUB and PDF files. If the master has any other format (for example MOBI or an MP3 audiobook), the request is rejected with `422 Unprocessable Content` and an error with the code `validation_lcp_formats_not_supported`. This also happens when LCP comes from your webapp settings and not from the request.
+
+The response of an LCP transaction lists its formats as `lcpl` (an LCP-protected EPUB) and `lcpdf` (an LCP-protected PDF). The customer downloads an LCP license file and needs the passphrase to open it in an LCP-compatible reading app. The passphrase is shown on the transaction's download page, available in the response's `download_url` field.
+
 ## 6. Delivering watermarked files
 
 How you deliver the watermarked files to your customer depends on which flow you used to create them.
@@ -343,7 +377,7 @@ To deliver a transaction's protected file to your customer, generate a link to t
 ````
 https://dl.lemonink.co/transactions/a-token-unique-for-this-transaction/id-of-the-new-transaction.format
 ````
-Where format is one of `epub`, `mobi` or `pdf`.
+Where format is one of `epub`, `mobi` or `pdf`. For [LCP-protected transactions](#protecting-files-with-readium-lcp-drm), use `lcpl` or `lcpdf` instead. Both download an `.lcpl` license file. Your customer will also need the passphrase, which is shown on the transaction's `download_url` page and isn't included in the API response.
 
 Et voilà!
 
